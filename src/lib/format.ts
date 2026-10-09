@@ -51,3 +51,9 @@ export function toNumber(v: Cell): number | null {
   }
   return null;
 }
+
+const pctFmt = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+
+export function percent(value: number, total: number): string {
+  return total ? `${pctFmt.format((value / total) * 100)}%` : '0%';
+}

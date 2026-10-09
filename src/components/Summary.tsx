@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { countBy } from '../lib/filters';
+import { breakdown } from '../lib/breakdown';
 import { formatCompact, formatNumber, isoDate, toNumber } from '../lib/format';
 import { metricValue } from '../lib/geo';
 import { REGION_COLORS } from '../lib/palette';
@@ -25,9 +25,13 @@ export function Summary({ rows, allRows, columnInfo, filters, onToggle, onGoMap 
   const countryCol = countryColumns(columnInfo)[0]?.name;
   const numberCols = columnInfo.filter((c) => c.type === 'number');
   const dateCols = columnInfo.filter((c) => c.type === 'date');
-  const chartable = columnInfo.filter((c) => (c.type === 'category' || c.type === 'boolean') && c.unique <= 60);
+  // Todas las columnas con datos pueden mostrarse en el desglose.
+  const chartable = columnInfo.filter((c) => c.type !== 'empty');
 
-  const [charts, setCharts] = useState<string[]>(() => chartable.slice(0, 6).map((c) => c.name));
+  const [charts, setCharts] = useState<string[]>(() => {
+    const preferred = chartable.filter((c) => c.type === 'category' || c.type === 'boolean' || c.type === 'country');
+    return (preferred.length ? preferred : chartable).slice(0, 6).map((c) => c.name);
+  });
   const [dateCol, setDateCol] = useState(dateCols[0]?.name);
   const { agg, selected } = useGeo(rows, allRows, countryCol, COUNT_METRIC, undefined, filters);
 
@@ -111,6 +115,7 @@ export function Summary({ rows, allRows, columnInfo, filters, onToggle, onGoMap 
               agg={agg}
               metric={COUNT_METRIC}
               metricLabel="Filas"
+              total={rows.length}
               mode="zona"
               selected={selected}
               onCountry={(a2) => { const a = agg.byCountry.get(a2); if (a) onToggle(countryCol, [...a.rawValues]); }}
@@ -119,13 +124,14 @@ export function Summary({ rows, allRows, columnInfo, filters, onToggle, onGoMap 
           </div>
           <div className="card">
             <h3 className="card-title">Por zona del mundo</h3>
-            <BarList items={regionItems} />
+            <BarList items={regionItems} total={rows.length} />
             <h3 className="card-title spaced">Top países</h3>
             <BarList
               items={[...agg.byCountry.values()].map((a) => ({ key: a.country.a2, label: a.country.es, value: a.count, color: REGION_COLORS[a.country.region] })).sort((a, b) => b.value - a.value)}
               selected={selected}
               onClick={(a2) => { const a = agg.byCountry.get(a2); if (a) onToggle(countryCol, [...a.rawValues]); }}
               limit={6}
+              total={rows.length}
             />
           </div>
         </div>
@@ -150,6 +156,8 @@ export function Summary({ rows, allRows, columnInfo, filters, onToggle, onGoMap 
           <div className="section-head">
             <h2 className="section-title">Desglose por columnas</h2>
             <div className="chip-toggles" aria-label="Elegir gráficos">
+              <button className="link small" onClick={() => setCharts(chartable.map((c) => c.name))}>Todas ({chartable.length})</button>
+              <button className="link small" onClick={() => setCharts([])}>Ninguna</button>
               {chartable.map((c) => {
                 const on = charts.includes(c.name);
                 return (
@@ -167,14 +175,14 @@ export function Summary({ rows, allRows, columnInfo, filters, onToggle, onGoMap 
           </div>
           <div className="breakdown">
             {chartable.filter((c) => charts.includes(c.name)).map((c) => {
-              const items = [...countBy(rows, c.name).entries()].map(([key, value]) => ({ key, value })).sort((a, b) => b.value - a.value);
+              const { items, filterable } = breakdown(rows, c);
               return (
                 <div className="card" key={c.name}>
-                  <h3 className="card-title">{c.name}</h3>
+                  <h3 className="card-title" title={c.name}>{c.name} <span className="muted">· {items.length} valores</span></h3>
                   <BarList
                     items={items}
-                    selected={selectedValues(c.name)}
-                    onClick={(v) => onToggle(c.name, v)}
+                    selected={filterable ? selectedValues(c.name) : undefined}
+                    onClick={filterable ? (v) => onToggle(c.name, v) : undefined}
                     total={rows.length}
                   />
                 </div>

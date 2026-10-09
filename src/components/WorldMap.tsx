@@ -5,7 +5,7 @@ import type { Feature, FeatureCollection, Geometry } from 'geojson';
 import type { Topology } from 'topojson-specification';
 import worldUrl from 'world-atlas/countries-50m.json?url';
 import { countryByNumericId } from '../lib/countries';
-import { formatNumber } from '../lib/format';
+import { formatNumber, percent } from '../lib/format';
 import { dominant, metricValue, type GeoAgg, type Metric } from '../lib/geo';
 import { NO_DATA, OTHER, REGION_COLORS, sequentialColor } from '../lib/palette';
 
@@ -15,6 +15,8 @@ interface Props {
   agg: GeoAgg;
   metric: Metric;
   metricLabel: string;
+  /** Total de la métrica (para el % de cada país). */
+  total: number;
   mode: ColorMode;
   categoryColors?: Map<string, string>;
   colorColLabel?: string;
@@ -38,7 +40,7 @@ function loadGeo() {
   return geoCache;
 }
 
-export function WorldMap({ agg, metric, metricLabel, mode, categoryColors, colorColLabel, selected, onCountry, compact }: Props) {
+export function WorldMap({ agg, metric, metricLabel, total, mode, categoryColors, colorColLabel, selected, onCountry, compact }: Props) {
   const [features, setFeatures] = useState<Feature<Geometry, { name: string }>[] | null>(null);
   const [view, setView] = useState({ k: 1, x: 0, y: 0 });
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -192,9 +194,15 @@ export function WorldMap({ agg, metric, metricLabel, mode, categoryColors, color
           {hovered.country && <div className="tooltip-sub">{hovered.country.region} · {hovered.country.subregion}</div>}
           {hoveredAgg ? (
             <>
-              <div className="tooltip-row"><span>Filas</span><strong>{formatNumber(hoveredAgg.count)}</strong></div>
+              <div className="tooltip-row"><span>Peticiones</span><strong>{formatNumber(hoveredAgg.count)}</strong></div>
+              {metric.kind === 'count' && (
+                <div className="tooltip-row"><span>% del total</span><strong>{percent(hoveredAgg.count, total)}</strong></div>
+              )}
               {metric.kind !== 'count' && (
                 <div className="tooltip-row"><span>{metricLabel}</span><strong>{formatNumber(metricValue(hoveredAgg, metric))}</strong></div>
+              )}
+              {metric.kind === 'sum' && (
+                <div className="tooltip-row"><span>% del total</span><strong>{percent(metricValue(hoveredAgg, metric), total)}</strong></div>
               )}
               {mode === 'columna' && colorColLabel && (
                 <div className="tooltip-row"><span>{colorColLabel}</span><strong>{dominant(hoveredAgg.categories)}</strong></div>

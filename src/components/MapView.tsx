@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { formatNumber } from '../lib/format';
+import { formatNumber, percent, toNumber } from '../lib/format';
 import { metricValue, type Metric } from '../lib/geo';
 import { CATEGORICAL, OTHER, REGION_COLORS, SEQUENTIAL } from '../lib/palette';
 import { REGIONS } from '../lib/countries';
@@ -31,7 +31,7 @@ export function MapView({ rows, allRows, columnInfo, filters, onToggle }: Props)
     const [kind, ...rest] = metricKey.split(':');
     return { kind: kind as 'sum' | 'avg', col: rest.join(':') };
   }, [metricKey]);
-  const metricLabel = metric.kind === 'count' ? 'Filas' : `${metric.kind === 'sum' ? 'Suma' : 'Media'} de ${metric.col}`;
+  const metricLabel = metric.kind === 'count' ? 'Peticiones' : `${metric.kind === 'sum' ? 'Suma' : 'Media'} de ${metric.col}`;
 
   const activeCountryCol = countryCols.find((c) => c.name === countryCol)?.name ?? countryCols[0]?.name;
   const { agg, categoryColors, selected } = useGeo(rows, allRows, activeCountryCol, metric, mode === 'columna' ? colorCol : undefined, filters);
@@ -64,6 +64,12 @@ export function MapView({ rows, allRows, columnInfo, filters, onToggle }: Props)
   };
 
   const max = ranking[0]?.value ?? 0;
+  // Base de los porcentajes: todas las filas filtradas (incluidas las que no tienen país reconocido).
+  const total = metric.kind === 'count'
+    ? rows.length
+    : rows.reduce((s, r) => s + (toNumber(r[metric.col]) ?? 0), 0);
+  const unmatchedCount = [...agg.unmatched.values()].reduce((a, b) => a + b, 0);
+  const tableRows = [...agg.byCountry.values()].sort((a, b) => b.count - a.count);
 
   return (
     <div className="map-view">
@@ -106,6 +112,7 @@ export function MapView({ rows, allRows, columnInfo, filters, onToggle }: Props)
             agg={agg}
             metric={metric}
             metricLabel={metricLabel}
+            total={total}
             mode={mode}
             categoryColors={categoryColors}
             colorColLabel={colorCol}
@@ -116,7 +123,9 @@ export function MapView({ rows, allRows, columnInfo, filters, onToggle }: Props)
             {mode === 'zona' && REGIONS.filter((r) => r !== 'Antártida').map((r) => (
               <span key={r} className="legend-item">
                 <span className="swatch" style={{ background: REGION_COLORS[r] }} />{r}
-                <span className="muted">{formatNumber(regionTotals.get(r) ?? 0)}</span>
+                <span className="muted">
+                  {formatNumber(regionTotals.get(r) ?? 0)}{metric.kind !== 'avg' && ` · ${percent(regionTotals.get(r) ?? 0, total)}`}
+                </span>
               </span>
             ))}
             {mode === 'cantidad' && (
@@ -145,6 +154,8 @@ export function MapView({ rows, allRows, columnInfo, filters, onToggle }: Props)
             selected={selected}
             onClick={toggleCountry}
             limit={15}
+            total={total}
+            hidePercent={metric.kind === 'avg'}
           />
           {agg.unmatched.size > 0 && (
             <details className="unmatched">
@@ -156,6 +167,59 @@ export function MapView({ rows, allRows, columnInfo, filters, onToggle }: Props)
               </ul>
             </details>
           )}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-head">
+          <h3 className="card-title">Peticiones por país <span className="muted">· {agg.byCountry.size} países · {formatNumber(rows.length)} peticiones</span></h3>
+        </div>
+        <div className="table-wrap country-table-wrap">
+          <table className="table country-table">
+            <thead>
+              <tr>
+                <th><button disabled>País</button></th>
+                <th><button disabled>Zona</button></th>
+                <th className="num"><button disabled>Peticiones</button></th>
+                <th><button disabled>% del total</button></th>
+                {metric.kind !== 'count' && <th className="num"><button disabled>{metricLabel}</button></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {tableRows.map((a) => (
+                <tr key={a.country.a2} className={selected.has(a.country.a2) ? 'is-selected' : ''} onClick={() => toggleCountry(a.country.a2)} title="Clic para filtrar">
+                  <td>{a.country.es}</td>
+                  <td><span className="legend-item"><span className="swatch" style={{ background: REGION_COLORS[a.country.region] }} />{a.country.region}</span></td>
+                  <td className="num">{formatNumber(a.count)}</td>
+                  <td className="pct-cell">
+                    <span className="pct-bar">
+                      <span>{percent(a.count, rows.length)}</span>
+                      <span className="pct-track"><i style={{ width: `${rows.length ? (a.count / rows.length) * 100 : 0}%` }} /></span>
+                    </span>
+                  </td>
+                  {metric.kind !== 'count' && <td className="num">{formatNumber(metricValue(a, metric))}</td>}
+                </tr>
+              ))}
+              {unmatchedCount > 0 && (
+                <tr className="muted">
+                  <td>Sin país reconocido</td>
+                  <td>—</td>
+                  <td className="num">{formatNumber(unmatchedCount)}</td>
+                  <td className="pct-cell"><span className="pct-bar"><span>{percent(unmatchedCount, rows.length)}</span><span className="pct-track"><i style={{ width: `${(unmatchedCount / rows.length) * 100}%`, background: 'var(--gold-light)' }} /></span></span></td>
+                  {metric.kind !== 'count' && <td />}
+                </tr>
+              )}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>Total</td>
+                <td />
+                <td className="num">{formatNumber(rows.length)}</td>
+                <td>100%</td>
+                {metric.kind !== 'count' && <td className="num">{metric.kind === 'sum' ? formatNumber(total) : ''}</td>}
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
     </div>

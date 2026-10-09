@@ -353,3 +353,15 @@ strong, b { font-weight: 400; }
 
 /* Las mayúsculas acentuadas (Á, É…) sobresalen de la caja: deja aire para que no se recorten. */
 .bar-label, .check-label, .fsec-name, .card-title, .kpi-label, .cell, .chip strong, .file-name { line-height: 1.45; }
+
+/* Porcentajes */
+.bar-pct { display: inline-block; min-width: 46px; text-align: right; margin-left: 8px; color: var(--muted); font-weight: 300; }
+.country-table-wrap { max-height: 520px; overflow: auto; }
+.country-table td.pct-cell { min-width: 150px; }
+.pct-bar { display: flex; align-items: center; gap: 8px; }
+.pct-bar span:first-child { min-width: 46px; text-align: right; font-variant-numeric: tabular-nums; }
+.pct-track { flex: 1; height: 6px; background: #f0ede4; border-radius: 4px; overflow: hidden; min-width: 60px; }
+.pct-track i { display: block; height: 100%; background: var(--turquoise); border-radius: 4px; }
+.country-table tbody tr { cursor: pointer; }
+.country-table tbody tr.is-selected td { background: var(--turquoise-soft); }
+.country-table tfoot td { font-weight: 400; border-top: 1px solid var(--line-strong); border-bottom: 0; background: var(--bg-rentals); position: sticky; bottom: 0; }
