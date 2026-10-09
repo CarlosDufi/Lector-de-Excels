@@ -11,12 +11,14 @@ import { Summary } from './components/Summary';
 import { MapView } from './components/MapView';
 import { DataTable } from './components/DataTable';
 import { ColumnsView } from './components/ColumnsView';
+import { PivotView } from './components/PivotView';
 import { RowDetail } from './components/RowDetail';
 
-type Tab = 'resumen' | 'mapa' | 'datos' | 'columnas';
+type Tab = 'resumen' | 'mapa' | 'tabla' | 'datos' | 'columnas';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'resumen', label: 'Resumen' },
   { id: 'mapa', label: 'Mapa' },
+  { id: 'tabla', label: 'Tabla dinámica' },
   { id: 'datos', label: 'Datos' },
   { id: 'columnas', label: 'Columnas' },
 ];
@@ -70,6 +72,11 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [columns, sheet?.name, dataset?.loadedAt, typeOverrides],
   );
+
+  // El mapa solo tiene sentido si hay alguna columna de países.
+  const hasMap = columnInfo.some((c) => c.type === 'country');
+  const tabs = TABS.filter((t) => t.id !== 'mapa' || hasMap);
+  const activeTab: Tab = tab === 'mapa' && !hasMap ? 'resumen' : tab;
 
   const filtered = useMemo(() => applyFilters(rows, filters, columns, search), [rows, filters, columns, search]);
 
@@ -185,8 +192,8 @@ export default function App() {
         <button className="btn btn-outline filters-toggle" onClick={() => setPanelOpen((o) => !o)}>
           Filtros{Object.keys(filters).length ? ` (${Object.keys(filters).length})` : ''}
         </button>
-        {TABS.map((t) => (
-          <button key={t.id} className={`tab ${tab === t.id ? 'is-active' : ''}`} onClick={() => setTab(t.id)} aria-current={tab === t.id}>
+        {tabs.map((t) => (
+          <button key={t.id} className={`tab ${activeTab === t.id ? 'is-active' : ''}`} onClick={() => setTab(t.id)} aria-current={activeTab === t.id}>
             {t.label}
           </button>
         ))}
@@ -210,11 +217,22 @@ export default function App() {
         />
         <main className="content">
           <FilterChips filters={filters} search={search} onFilter={setFilter} onSearch={setSearch} onClear={() => { setFilters({}); setSearch(''); }} />
-          {tab === 'resumen' && (
+          {activeTab === 'resumen' && (
             <Summary rows={filtered} allRows={rows} columnInfo={columnInfo} filters={filters} onToggle={toggleOnly} onGoMap={() => setTab('mapa')} />
           )}
-          {tab === 'mapa' && <MapView rows={filtered} allRows={rows} columnInfo={columnInfo} filters={filters} onToggle={toggleOnly} />}
-          {tab === 'datos' && (
+          {activeTab === 'mapa' && <MapView rows={filtered} allRows={rows} columnInfo={columnInfo} filters={filters} onToggle={toggleOnly} />}
+          {activeTab === 'tabla' && (
+            <PivotView
+              key={`${dataset.loadedAt}-${sheetIdx}`}
+              rows={filtered}
+              allRows={rows}
+              columnInfo={columnInfo}
+              filters={filters}
+              onFilter={setFilter}
+              fileName={dataset.fileName}
+            />
+          )}
+          {activeTab === 'datos' && (
             <DataTable
               key={`${dataset.loadedAt}-${sheetIdx}`}
               rows={filtered}
@@ -224,7 +242,7 @@ export default function App() {
               onExport={doExport}
             />
           )}
-          {tab === 'columnas' && (
+          {activeTab === 'columnas' && (
             <ColumnsView
               rows={filtered}
               columnInfo={columnInfo}

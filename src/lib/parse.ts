@@ -94,3 +94,10 @@ export function exportRows(rows: Row[], columns: string[], fileName: string) {
   XLSX.utils.book_append_sheet(wb, ws, 'Datos');
   XLSX.writeFile(wb, fileName);
 }
+
+export function exportTable(aoa: (string | number | null)[][], fileName: string, sheetName = 'Tabla') {
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  XLSX.writeFile(wb, fileName);
+}

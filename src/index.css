@@ -366,3 +366,27 @@ strong, b { font-weight: 400; }
 .country-table tbody tr.is-selected td { background: var(--turquoise-soft); }
 .country-table tfoot td { font-weight: 400; border-top: 1px solid var(--line-strong); border-bottom: 0; background: var(--bg-rentals); position: sticky; bottom: 0; }
 .kpi-label-wrap { white-space: normal; overflow: visible; }
+
+/* ---------- Tabla dinámica ---------- */
+.pv-hint { margin: -6px 0 10px; }
+.pv-wrap { max-height: calc(100vh - 260px); }
+.pv-table th button:disabled { cursor: default; }
+.pv-table thead th { text-align: right; }
+.pv-table thead th.pv-corner { text-align: left; position: sticky; left: 0; z-index: 3; }
+.pv-table thead th.is-selected, .pv-table tr.is-selected .pv-rowhead { background: var(--turquoise-soft); }
+.pv-rowhead { position: sticky; left: 0; z-index: 1; background: var(--surface); border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); text-align: left; font-weight: 400; padding: 0; max-width: 260px; }
+.pv-rowhead button { border: 0; background: none; padding: 8px 12px; width: 100%; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.pv-rowhead button:hover:not(:disabled) { color: var(--turquoise-ink); }
+.pv-table thead th button { max-width: 180px; overflow: hidden; text-overflow: ellipsis; display: block; margin-left: auto; text-align: right; }
+.pv-table thead th.pv-corner button { margin-left: 0; text-align: left; max-width: 280px; }
+.pv-table tbody tr { cursor: default; }
+.pv-table tbody tr:hover td, .pv-table tbody tr:hover .pv-rowhead { box-shadow: inset 0 0 0 9999px rgba(40, 71, 68, 0.04); }
+.pv-cell { cursor: pointer; white-space: nowrap; }
+.pv-cell:hover { outline: 2px solid var(--high-net); outline-offset: -2px; }
+.pv-val { color: var(--ink); }
+.pv-pct { display: block; font-size: 11px; color: var(--ink-2); font-weight: 300; }
+.pv-total { background: var(--bg-rentals); font-weight: 400; white-space: nowrap; cursor: pointer; border-left: 1px solid var(--line-strong); }
+.pv-table tfoot td, .pv-table tfoot th { position: sticky; bottom: 0; background: var(--bg-rentals); border-top: 1px solid var(--line-strong); font-weight: 400; padding: 8px 12px; }
+.pv-table tfoot th { z-index: 2; }
+.pv-more { margin-top: 10px; }
+.swap { align-self: flex-end; margin-bottom: 4px; }
