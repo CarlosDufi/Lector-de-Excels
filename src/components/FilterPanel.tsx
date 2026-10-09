@@ -20,9 +20,9 @@ interface Props {
 const FILTERABLE = new Set(['category', 'country', 'boolean', 'number', 'date']);
 
 export function FilterPanel(p: Props) {
-  const ORDER = ['country', 'category', 'boolean', 'date', 'number', 'text'];
+  const ORDER = ['country', 'category', 'boolean', 'date', 'number', 'text', 'id'];
   const cols = p.columnInfo
-    .filter((c) => FILTERABLE.has(c.type) || (c.type === 'text' && c.unique <= 300))
+    .filter((c) => FILTERABLE.has(c.type) || ((c.type === 'text' || c.type === 'id') && c.unique <= 300))
     .sort((a, b) => ORDER.indexOf(a.type) - ORDER.indexOf(b.type));
   const [query, setQuery] = useState('');
   const shown = cols.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()));

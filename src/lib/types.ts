@@ -1,7 +1,7 @@
 export type Cell = string | number | boolean | Date | null;
 export type Row = Record<string, Cell>;
 
-export type ColumnType = 'number' | 'date' | 'boolean' | 'country' | 'category' | 'text' | 'email' | 'empty';
+export type ColumnType = 'number' | 'date' | 'boolean' | 'country' | 'category' | 'text' | 'email' | 'id' | 'empty';
 
 export interface ColumnInfo {
   name: string;

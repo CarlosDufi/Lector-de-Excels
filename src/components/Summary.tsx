@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { breakdown } from '../lib/breakdown';
+import { isMoneyColumn } from '../lib/columns';
 import { formatCompact, formatNumber, isoDate, toNumber } from '../lib/format';
 import { metricValue } from '../lib/geo';
 import { REGION_COLORS } from '../lib/palette';
@@ -35,15 +36,16 @@ export function Summary({ rows, allRows, columnInfo, filters, onToggle, onGoMap 
   const [dateCol, setDateCol] = useState(dateCols[0]?.name);
   const { agg, selected } = useGeo(rows, allRows, countryCol, COUNT_METRIC, undefined, filters);
 
+  // Para importes y cantidades lo útil es el valor típico (mediana), no la suma de todas las filas.
   const kpis = useMemo(() => {
     return numberCols.slice(0, 3).map((c) => {
-      let sum = 0;
-      let n = 0;
-      for (const r of rows) {
-        const v = toNumber(r[c.name]);
-        if (v !== null) { sum += v; n++; }
-      }
-      return { name: c.name, sum, avg: n ? sum / n : 0 };
+      const vals = rows.map((r) => toNumber(r[c.name])).filter((v): v is number => v !== null).sort((a, b) => a - b);
+      const n = vals.length;
+      const median = n ? (n % 2 ? vals[(n - 1) / 2] : (vals[n / 2 - 1] + vals[n / 2]) / 2) : 0;
+      const avg = n ? vals.reduce((a, b) => a + b, 0) / n : 0;
+      const money = isMoneyColumn(c.name);
+      const fmt = (v: number) => (money ? `${formatCompact(v)} €` : formatCompact(v));
+      return { name: c.name, n, median, avg, min: vals[0] ?? 0, max: vals[n - 1] ?? 0, fmt };
     });
   }, [rows, numberCols]);
 
@@ -89,10 +91,14 @@ export function Summary({ rows, allRows, columnInfo, filters, onToggle, onGoMap 
           </div>
         )}
         {kpis.map((k) => (
-          <div className="kpi" key={k.name}>
-            <span className="kpi-label" title={k.name}>{k.name}</span>
-            <span className="kpi-value">{formatCompact(k.sum)}</span>
-            <span className="kpi-sub">media {formatCompact(k.avg)}</span>
+          <div
+            className="kpi"
+            key={k.name}
+            title={`Mediana: la mitad de las filas está por debajo de ${k.fmt(k.median)} y la otra mitad por encima (${formatNumber(k.n)} filas con valor).`}
+          >
+            <span className="kpi-label kpi-label-wrap">{k.name} · mediana</span>
+            <span className="kpi-value">{k.fmt(k.median)}</span>
+            <span className="kpi-sub">media {k.fmt(k.avg)} · de {k.fmt(k.min)} a {k.fmt(k.max)}</span>
           </div>
         ))}
         {dateRange && (

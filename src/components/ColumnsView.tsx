@@ -11,7 +11,7 @@ interface Props {
   onType: (col: string, t: ColumnType) => void;
 }
 
-const TYPES: ColumnType[] = ['category', 'text', 'number', 'date', 'country', 'email', 'boolean'];
+const TYPES: ColumnType[] = ['category', 'text', 'number', 'date', 'country', 'email', 'boolean', 'id'];
 
 export function ColumnsView({ rows, columnInfo, onType }: Props) {
   return (
