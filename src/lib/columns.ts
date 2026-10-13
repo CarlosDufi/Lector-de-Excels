@@ -44,12 +44,20 @@ export const TYPE_LABEL: Record<ColumnType, string> = {
   text: 'Texto', email: 'Email', id: 'Referencia', empty: 'Vacía',
 };
 
-/** Convierte strings de fecha a Date para que ordenar/filtrar funcione. */
+/** Convierte fechas y números escritos como texto («15/03/2025», «1.200.000») a su tipo real. */
 export function coerceDates(rows: Row[], cols: ColumnInfo[]): Row[] {
   const dateCols = cols.filter((c) => c.type === 'date').map((c) => c.name);
-  if (!dateCols.length) return rows;
+  const numCols = cols.filter((c) => c.type === 'number').map((c) => c.name);
+  if (!dateCols.length && !numCols.length) return rows;
   return rows.map((r) => {
     const out = { ...r };
+    for (const c of numCols) {
+      const v = out[c];
+      if (typeof v === 'string') {
+        const n = toNumber(v);
+        if (n !== null) out[c] = n;
+      }
+    }
     for (const c of dateCols) {
       const v = out[c];
       if (typeof v === 'string') {

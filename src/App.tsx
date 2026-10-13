@@ -12,6 +12,7 @@ import { MapView } from './components/MapView';
 import { DataTable } from './components/DataTable';
 import { ColumnsView } from './components/ColumnsView';
 import { PivotView } from './components/PivotView';
+import { AskData } from './components/AskData';
 import { RowDetail } from './components/RowDetail';
 
 type Tab = 'resumen' | 'mapa' | 'tabla' | 'datos' | 'columnas';
@@ -42,6 +43,7 @@ export default function App() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pivotPreset, setPivotPreset] = useState<{ rows: string; cols: string; n: number } | null>(null);
 
   useEffect(() => {
     loadDataset().then((d) => {
@@ -79,6 +81,8 @@ export default function App() {
   const activeTab: Tab = tab === 'mapa' && !hasMap ? 'resumen' : tab;
 
   const filtered = useMemo(() => applyFilters(rows, filters, columns, search), [rows, filters, columns, search]);
+
+  const queryContext = useMemo(() => ({ rows: filtered, allRows: rows, columnInfo }), [filtered, rows, columnInfo]);
 
   const setFilter = useCallback((col: string, f: Filter | null) => {
     setFilters((prev) => {
@@ -174,7 +178,7 @@ export default function App() {
               onChange={(e) => { setSheetIdx(Number(e.target.value)); setFilters({}); setTypeOverrides({}); }}
               aria-label="Hoja"
             >
-              {dataset.sheets.map((s, i) => <option key={s.name} value={i}>{s.name} ({s.rows.length})</option>)}
+              {dataset.sheets.map((s, i) => <option key={s.name} value={i}>{s.name} ({s.rows.length}){s.info?.hidden ? ' · oculta' : ''}</option>)}
             </select>
           )}
           {dataset.url && (
@@ -223,7 +227,9 @@ export default function App() {
           {activeTab === 'mapa' && <MapView rows={filtered} allRows={rows} columnInfo={columnInfo} filters={filters} onToggle={toggleOnly} />}
           {activeTab === 'tabla' && (
             <PivotView
-              key={`${dataset.loadedAt}-${sheetIdx}`}
+              key={`${dataset.loadedAt}-${sheetIdx}-${pivotPreset?.n ?? 0}`}
+              initialRow={pivotPreset?.rows}
+              initialCol={pivotPreset?.cols}
               rows={filtered}
               allRows={rows}
               columnInfo={columnInfo}
@@ -247,10 +253,19 @@ export default function App() {
               rows={filtered}
               columnInfo={columnInfo}
               onType={(col, t) => setTypeOverrides((p) => ({ ...p, [col]: t }))}
+              sheet={sheet}
+              sheetCount={dataset.sheets.length}
+              hiddenSheets={dataset.sheets.filter((x) => x.info?.hidden).length}
             />
           )}
         </main>
       </div>
+
+      <AskData
+        context={queryContext}
+        onApplyFilters={(f) => setFilters((prev) => ({ ...prev, ...f }))}
+        onOpenPivot={(r, c) => { setPivotPreset((p) => ({ rows: r, cols: c, n: (p?.n ?? 0) + 1 })); setTab('tabla'); }}
+      />
 
       {detail && (
         <RowDetail

@@ -12,6 +12,8 @@ interface Props {
   filters: Filters;
   onFilter: (col: string, f: Filter | null) => void;
   fileName: string;
+  initialRow?: string;
+  initialCol?: string;
 }
 
 type PctMode = 'none' | 'total' | 'row' | 'col';
@@ -21,14 +23,14 @@ const OTHERS = '__otros__';
 
 const bucket = (): Bucket => ({ count: 0, values: [] });
 
-export function PivotView({ rows, allRows, columnInfo, filters, onFilter, fileName }: Props) {
+export function PivotView({ rows, allRows, columnInfo, filters, onFilter, fileName, initialRow, initialCol }: Props) {
   const groupable = columnInfo.filter((c) => c.type !== 'empty');
   const numberCols = columnInfo.filter((c) => c.type === 'number');
   const defaultRow = (columnInfo.find((c) => c.type === 'country') ?? columnInfo.find((c) => c.type === 'category') ?? groupable[0])?.name ?? '';
   const defaultCol = columnInfo.find((c) => c.type === 'category' && c.name !== defaultRow && c.unique <= MAX_COLS)?.name ?? '';
 
-  const [rowCol, setRowCol] = useState(defaultRow);
-  const [colCol, setColCol] = useState(defaultCol);
+  const [rowCol, setRowCol] = useState(initialRow ?? defaultRow);
+  const [colCol, setColCol] = useState(initialCol ?? (initialRow ? '' : defaultCol));
   const [measureKey, setMeasureKey] = useState('count');
   const [pct, setPct] = useState<PctMode>('none');
   const [sortAZ, setSortAZ] = useState(false);

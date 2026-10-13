@@ -23,6 +23,15 @@ con la identidad visual de Prestige Properties (paleta 2026, Neue Haas Unica, Ga
     (doble clic) y **exportación a Excel** de lo filtrado.
   - **Columnas**: ficha de cada columna (tipo, % relleno, valores distintos, valores más frecuentes, mín/máx/media).
   - **Detalle de fila**: clic en una fila para ver y editar todos sus campos.
+- **Preguntar a los datos** (botón abajo a la derecha): preguntas en lenguaje natural, sin IA y sin coste. Entiende
+  los nombres de columna y los valores del archivo cargado (también países escritos de otra forma, meses y cifras
+  como «2 millones»): «¿cuántas peticiones de Alemania en marzo?», «ranking de países», «porcentaje por idioma»,
+  «mediana del presupuesto por país», «compara New y Comeback», «presupuesto más alto». Muestra lo que ha entendido,
+  permite aplicar esos filtros a la app y abre la tabla dinámica para cruces de dos columnas.
+- **Lectura robusta de cualquier Excel/CSV**: detecta la cabecera aunque haya títulos encima o esté en dos filas,
+  rellena celdas combinadas, descarta filas de totales y cabeceras repetidas, incorpora los comentarios de celda,
+  lee hojas ocultas, CSV con «;» o «,» en UTF-8 o Windows-1252, y números/fechas escritos como texto
+  («1.200.000», «15/03/2025»). La sección *Columnas* resume cómo se ha leído cada archivo.
 - Los datos se guardan **solo en el navegador** (IndexedDB) para que sigan ahí al volver; no se envían a ningún servidor.
 
 ## Uso
