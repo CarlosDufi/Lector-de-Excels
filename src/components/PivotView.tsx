@@ -148,7 +148,7 @@ export function PivotView({ rows, allRows, columnInfo, filters, onFilter, fileNa
 
   const heat = (v: number) => (max ? { background: `rgba(51, 166, 166, ${(0.06 + 0.5 * (v / max)).toFixed(3)})` } : undefined);
   const shownRows = rowKeys.slice(0, rowLimit);
-  const measureLabel = measure.kind === 'count' ? 'Peticiones' : `${{ sum: 'Suma', avg: 'Media', median: 'Mediana' }[measure.kind]} de ${measure.col}`;
+  const measureLabel = measure.kind === 'count' ? 'Peticiones' : `${{ sum: 'Suma', avg: 'Media', median: 'Mediana', max: 'Máximo', min: 'Mínimo' }[measure.kind]} de ${measure.col}`;
 
   const doExport = () => {
     const header = [rowInfo.name, ...(colInfo ? colKeys.map((k) => colsMeta.get(k)!.label) : []), 'Total'];

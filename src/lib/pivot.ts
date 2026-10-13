@@ -66,13 +66,15 @@ export function makeGrouper(rows: Row[], info: ColumnInfo): Grouper {
   };
 }
 
-export type Measure = { kind: 'count' } | { kind: 'sum' | 'avg' | 'median'; col: string };
+export type Measure = { kind: 'count' } | { kind: 'sum' | 'avg' | 'median' | 'max' | 'min'; col: string };
 
 export function aggregate(values: number[], m: Measure, count: number): number {
   if (m.kind === 'count') return count;
   if (!values.length) return 0;
   if (m.kind === 'sum') return values.reduce((a, b) => a + b, 0);
   if (m.kind === 'avg') return values.reduce((a, b) => a + b, 0) / values.length;
+  if (m.kind === 'max') return values.reduce((a, b) => Math.max(a, b));
+  if (m.kind === 'min') return values.reduce((a, b) => Math.min(a, b));
   const v = values.slice().sort((a, b) => a - b);
   const n = v.length;
   return n % 2 ? v[(n - 1) / 2] : (v[n / 2 - 1] + v[n / 2]) / 2;

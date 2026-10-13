@@ -69,7 +69,7 @@ export interface Understood { label: string; value: string }
 
 export type Answer =
   | { kind: 'number'; title: string; value: string; detail?: string; understood: Understood[]; filters: Filters; scope: number }
-  | { kind: 'table'; title: string; columns: string[]; rows: { label: string; value: number; display: string; pct?: string }[]; more: number; understood: Understood[]; filters: Filters; scope: number; note?: string; pivot?: { rows: string; cols: string } }
+  | { kind: 'table'; title: string; columns: string[]; rows: { label: string; value: number; display: string; pct?: string }[]; more: number; understood: Understood[]; filters: Filters; scope: number; note?: string; pivot?: { rows: string; cols: string }; headline?: string }
   | { kind: 'rows'; title: string; columns: string[]; rows: Record<string, string>[]; total: number; understood: Understood[]; filters: Filters; scope: number }
   | { kind: 'unknown'; title: string; hints: string[] };
 
@@ -126,6 +126,10 @@ function columnTokens(name: string): string[] {
 
 /** Busca la columna a la que se refiere una frase («agente», «país», «presupuesto»…). */
 function matchColumn(phrase: string[], cols: ColumnInfo[], filter?: (c: ColumnInfo) => boolean): ColumnInfo | undefined {
+  return matchColumnScored(phrase, cols, filter)?.col;
+}
+
+function matchColumnScored(phrase: string[], cols: ColumnInfo[], filter?: (c: ColumnInfo) => boolean): { col: ColumnInfo; score: number } | undefined {
   const words = phrase.filter((t) => !STOP.has(t) || t === 'mes');
   if (!words.length) return undefined;
   const forms = (w: string) => [...new Set([w, w.replace(/s$/, ''), w.replace(/es$/, '')])];
@@ -141,7 +145,25 @@ function matchColumn(phrase: string[], cols: ColumnInfo[], filter?: (c: ColumnIn
     const score = hits / toks.length + hits * 0.1 - (c.type === 'empty' ? 1 : 0);
     if (score > bestScore) { bestScore = score; best = c; }
   }
-  return best;
+  return best ? { col: best, score: bestScore } : undefined;
+}
+
+/**
+ * Columna que empieza en tokens[j]: se prueba la palabra sola y se alarga solo si las palabras
+ * añadidas también describen la columna («agente anterior» → PRIOR AGENT, pero «agente tiene el
+ * presupuesto» → el agente). Nunca agrupa por una columna numérica.
+ */
+function columnAt(tokens: string[], j: number, cols: ColumnInfo[]): { col: ColumnInfo; len: number } | undefined {
+  const ok = (c: ColumnInfo) => c.type !== 'empty' && c.type !== 'number';
+  let best: { col: ColumnInfo; score: number; len: number } | undefined;
+  for (let len = 1; len <= Math.min(4, tokens.length - j); len++) {
+    const m = matchColumnScored(tokens.slice(j, j + len), cols, ok);
+    if (!m) { if (!best && len === 1 && STOP.has(tokens[j])) continue; if (!best) break; else continue; }
+    if (!best) { best = { ...m, len }; continue; }
+    const last = tokens[j + len - 1];
+    if (m.col !== best.col && m.score > best.score && matchColumn([last], [m.col])) best = { ...m, len };
+  }
+  return best ? { col: best.col, len: best.len } : undefined;
 }
 
 function parseAmount(s: string): number | null {
@@ -171,8 +193,8 @@ export function answer(question: string, ctx: QueryContext): Answer {
   const wantsAvg = has('media', 'medio', 'medios', 'medias', 'promedio', 'average', 'mean');
   const wantsMedian = has('mediana', 'median', 'tipico', 'habitual');
   const wantsSum = has('suma', 'sum', 'volumen', 'importe total', 'total de presupuesto', 'total del presupuesto');
-  const wantsMax = has('maximo', 'max', 'mas caro', 'mas alto', 'mayor presupuesto', 'highest', 'maximum');
-  const wantsMin = has('minimo', 'min', 'mas barato', 'mas bajo', 'menor presupuesto', 'lowest', 'minimum');
+  const wantsMax = has('maximo', 'maxima', 'max', 'mas caro', 'mas cara', 'mas caros', 'mas caras', 'mas alto', 'mas alta', 'mas altos', 'mas altas', 'mas grande', 'mayor presupuesto', 'mayores presupuestos', 'mayor precio', 'mayor importe', 'highest', 'maximum', 'most expensive');
+  const wantsMin = has('minimo', 'minima', 'min', 'mas barato', 'mas barata', 'mas baratos', 'mas bajo', 'mas baja', 'mas bajos', 'menor presupuesto', 'menores presupuestos', 'menor precio', 'lowest', 'minimum', 'cheapest');
   const wantsList = has('lista', 'listado', 'quienes', 'quien', 'muestra', 'muestrame', 'ensena', 'enseñame', 'list', 'show', 'cuales son', 'detalle');
   const wantsDistinct = has('distintos', 'distintas', 'diferentes', 'unicos', 'unicas', 'distinct');
   const wantsTrend = has('evolucion', 'tendencia', 'por mes', 'cada mes', 'mensual', 'mes a mes', 'trend', 'monthly', 'por meses');
@@ -191,9 +213,14 @@ export function answer(question: string, ctx: QueryContext): Answer {
     if (!GROUP_WORDS.includes(tokens[i])) continue;
     let j = i + 1;
     while (j < tokens.length && ['de', 'del', 'los', 'las', 'el', 'la', 'cada', 'pais', 'paises'].includes(tokens[j]) && !(tokens[j] === 'pais' || tokens[j] === 'paises')) j++;
-    for (let len = Math.min(4, tokens.length - j); len >= 1; len--) {
-      const c = matchColumn(tokens.slice(j, j + len), cols, (x) => x.type !== 'empty');
-      if (c) { groupCol = c; groupIdx = i; cover(i, j - i + len); break; }
+    const found = columnAt(tokens, j, cols);
+    if (found) { groupCol = found.col; groupIdx = i; cover(i, j - i + found.len); }
+  }
+  if (!groupCol && (wantsMax || wantsMin || (wantsRank && !has('mas de', 'menos de')))) {
+    for (let i = 0; i < tokens.length && !groupCol; i++) {
+      if (covered.has(i)) continue;
+      const found = columnAt(tokens, i, cols.filter((c) => c.type !== 'date' && c.unique > 1 && c.unique <= 200));
+      if (found) { groupCol = found.col; groupIdx = i; cover(i, found.len); }
     }
   }
   if (!groupCol && wantsTrend) {
@@ -356,9 +383,11 @@ export function answer(question: string, ctx: QueryContext): Answer {
   if (numCol && wantsMedian) measure = { kind: 'median', col: numCol.name };
   else if (numCol && wantsAvg) measure = { kind: 'avg', col: numCol.name };
   else if (numCol && wantsSum) measure = { kind: 'sum', col: numCol.name };
+  else if (numCol && groupCol && groupCol.name !== numCol.name && wantsMax) measure = { kind: 'max', col: numCol.name };
+  else if (numCol && groupCol && groupCol.name !== numCol.name && wantsMin) measure = { kind: 'min', col: numCol.name };
   const money = numCol ? isMoneyColumn(numCol.name) : false;
   const fmt = (v: number) => (measure.kind === 'count' ? formatCell(v) : money ? `${formatCell(Math.round(v))} €` : formatCell(v));
-  const measureLabel = measure.kind === 'count' ? 'peticiones' : `${{ sum: 'suma', avg: 'media', median: 'mediana' }[measure.kind]} de ${measure.col}`;
+  const measureLabel = measure.kind === 'count' ? 'peticiones' : `${{ sum: 'suma', avg: 'media', median: 'mediana', max: 'máximo', min: 'mínimo' }[measure.kind]} de ${measure.col}`;
   if (measure.kind !== 'count') understood.push({ label: 'Cálculo', value: measureLabel });
 
   const nothingUnderstood = !groupCol && !Object.keys(filters).length && measure.kind === 'count' && !wantsMax && !wantsMin && !wantsList && !wantsDistinct;
@@ -410,12 +439,25 @@ export function answer(question: string, ctx: QueryContext): Answer {
     const list = [...buckets.values()].map((b) => ({ label: b.label, order: b.order, value: aggregate(b.values, measure, b.count) }));
     const natural = groupCol.type === 'date' || (groupCol.type === 'number' && groupCol.unique > 15);
     if (natural && !wantsRank) list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    else list.sort((a, b) => (ascending ? a.value - b.value : b.value - a.value));
+    else list.sort((a, b) => (ascending || measure.kind === 'min' ? a.value - b.value : b.value - a.value));
     const additive = measure.kind === 'count' || measure.kind === 'sum';
     const total = list.reduce((s, x) => s + x.value, 0);
     const limit = topN ?? (natural ? 60 : wantsRank ? 10 : 25);
+    // «El presupuesto más alto lo tiene Reino Unido: 9.800.000 € (Pierre García)»
+    let headline: string | undefined;
+    if ((measure.kind === 'max' || measure.kind === 'min') && list[0]) {
+      const mcol = measure.col;
+      const pick = filtered.rows
+        .filter((r) => toNumber(r[mcol]) !== null)
+        .reduce<Row | null>((best, r) => (!best || (measure.kind === 'max' ? toNumber(r[mcol])! > toNumber(best[mcol])! : toNumber(r[mcol])! < toNumber(best[mcol])!) ? r : best), null);
+      const who = pick ? nameOf(pick, cols, [groupCol.name, mcol]) : '';
+      headline = `${measure.kind === 'max' ? 'El' : 'El'} ${mcol} ${measure.kind === 'max' ? 'más alto' : 'más bajo'} es de ${g.of(pick ?? filtered.rows[0]).label}: ${fmt(list[0].value)}${who ? ` (${who})` : ''}.`;
+    }
     const title = compareCol ? `Comparación de ${measureLabel} por ${groupCol.name}`
-      : `${wantsRank ? (ascending ? 'Menos' : 'Más') + ' ' : ''}${measureLabel} por ${groupCol.name}`;
+      : measure.kind === 'max' ? `${measure.col} más alto por ${groupCol.name}`
+        : measure.kind === 'min' ? `${measure.col} más bajo por ${groupCol.name}`
+          : measure.kind !== 'count' ? `${measureLabel} por ${groupCol.name}${wantsRank ? (ascending ? ' (de menor a mayor)' : ' (de mayor a menor)') : ''}`
+            : `${wantsRank ? (ascending ? 'Menos' : 'Más') + ' ' : ''}${measureLabel} por ${groupCol.name}`;
     return {
       kind: 'table', title: title.charAt(0).toUpperCase() + title.slice(1),
       columns: [groupCol.name, measure.kind === 'count' ? 'Peticiones' : measureLabel, ...(additive ? ['%'] : [])],
@@ -425,6 +467,7 @@ export function answer(question: string, ctx: QueryContext): Answer {
         ? `Para ver ${groupCol.name} cruzado con ${crossCol.name}, ábrelo en la tabla dinámica.`
         : n !== scope ? `Sobre ${formatCell(n)} de ${formatCell(scope)} filas visibles` : undefined,
       pivot: crossCol ? { rows: groupCol.name, cols: crossCol.name } : undefined,
+      headline,
     };
   }
 
@@ -437,6 +480,14 @@ export function answer(question: string, ctx: QueryContext): Answer {
     kind: 'number', title: 'Peticiones', value: formatCell(n),
     detail: `${percent(n, scope)} de las ${formatCell(scope)} filas visibles`, understood, filters, scope,
   };
+}
+
+/** Texto que identifica una fila (nombre, cliente, referencia…) para citarla en una respuesta. */
+function nameOf(row: Row, cols: ColumnInfo[], exclude: string[]): string {
+  const pick = (re: RegExp) => cols.find((c) => !exclude.includes(c.name) && c.type !== 'email' && re.test(c.name) && row[c.name] !== null);
+  const prefer = pick(/nombre|name|cliente|client/i) ?? pick(/lead|ref/i);
+  const c = prefer ?? cols.find((x) => !exclude.includes(x.name) && (x.type === 'text' || x.type === 'id') && row[x.name] !== null);
+  return c ? formatCell(row[c.name]) : '';
 }
 
 function fmtNum(v: number, money: boolean) { return money ? `${formatCell(Math.round(v))} €` : formatCell(v); }

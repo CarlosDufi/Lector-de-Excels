@@ -456,3 +456,12 @@ strong, b { font-weight: 400; }
 .reading { margin-bottom: 18px; }
 .reading ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: var(--ink-2); }
 .reading li.warn { color: var(--rental-gold); font-weight: 400; }
+.qa-clear { font-size: 12px; padding: 4px 12px; }
+.qa-q-row { display: flex; justify-content: flex-end; align-items: flex-start; gap: 6px; }
+.qa-q-row .qa-q { align-self: auto; }
+.qa-del {
+  flex: none; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--surface);
+  color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1; display: grid; place-items: center; margin-top: 4px;
+}
+.qa-del:hover { color: var(--ink); border-color: var(--ink); }
+.qa-headline { font-size: 15px; color: var(--high-net); font-weight: 400; background: var(--turquoise-soft); border-radius: 8px; padding: 8px 10px; }

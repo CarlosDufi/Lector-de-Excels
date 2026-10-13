@@ -8,7 +8,9 @@ interface Props {
   onOpenPivot: (rows: string, cols: string) => void;
 }
 
-interface Turn { question: string; answer: Answer }
+interface Turn { id: number; question: string; answer: Answer }
+
+let nextId = 1;
 
 export function AskData({ context, onApplyFilters, onOpenPivot }: Props) {
   const [open, setOpen] = useState(false);
@@ -24,7 +26,7 @@ export function AskData({ context, onApplyFilters, onOpenPivot }: Props) {
   const ask = (q: string) => {
     const text = q.trim();
     if (!text) return;
-    setTurns((t) => [...t, { question: text, answer: answer(text, context) }]);
+    setTurns((t) => [...t, { id: nextId++, question: text, answer: answer(text, context) }]);
     setInput('');
   };
 
@@ -43,7 +45,11 @@ export function AskData({ context, onApplyFilters, onOpenPivot }: Props) {
               <div className="qa-scope">Sobre <strong>{context.rows.length.toLocaleString('es-ES')}</strong> filas visibles · sin IA, gratis y privado</div>
             </div>
             <div className="qa-head-actions">
-              {turns.length > 0 && <button className="link small" onClick={() => setTurns([])}>Borrar</button>}
+              {turns.length > 0 && (
+                <button className="btn btn-ghost-dark qa-clear" onClick={() => setTurns([])} title="Borrar todas las consultas">
+                  Borrar todo ({turns.length})
+                </button>
+              )}
               <button className="icon-btn" onClick={() => setOpen(false)} aria-label="Cerrar">×</button>
             </div>
           </header>
@@ -61,9 +67,17 @@ export function AskData({ context, onApplyFilters, onOpenPivot }: Props) {
                 </div>
               </div>
             )}
-            {turns.map((t, i) => (
-              <div key={i} className="qa-turn">
-                <div className="qa-q">{t.question}</div>
+            {turns.map((t) => (
+              <div key={t.id} className="qa-turn">
+                <div className="qa-q-row">
+                  <div className="qa-q">{t.question}</div>
+                  <button
+                    className="qa-del"
+                    onClick={() => setTurns((ts) => ts.filter((x) => x.id !== t.id))}
+                    aria-label={`Borrar la consulta «${t.question}»`}
+                    title="Borrar esta consulta"
+                  >×</button>
+                </div>
                 <AnswerCard a={t.answer} onAsk={ask} onApplyFilters={onApplyFilters} onOpenPivot={onOpenPivot} />
               </div>
             ))}
@@ -115,6 +129,7 @@ function AnswerCard({ a, onAsk, onApplyFilters, onOpenPivot }: { a: Answer; onAs
       )}
       {a.kind === 'table' && (
         <>
+          {a.headline && <p className="qa-headline">{a.headline}</p>}
           <p className="qa-table-title">{a.title}</p>
           <table className="qa-table">
             <thead><tr>{a.columns.map((c, i) => <th key={c} className={i ? 'num' : ''}>{c}</th>)}</tr></thead>
