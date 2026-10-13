@@ -23,6 +23,16 @@ con la identidad visual de Prestige Properties (paleta 2026, Neue Haas Unica, Ga
     (doble clic) y **exportación a Excel** de lo filtrado.
   - **Columnas**: ficha de cada columna (tipo, % relleno, valores distintos, valores más frecuentes, mín/máx/media).
   - **Detalle de fila**: clic en una fila para ver y editar todos sus campos.
+- **Asistente IA** (botón «✦ Preguntar a la IA»): responde en lenguaje natural sobre las filas visibles, teniendo
+  en cuenta los filtros activos. Usa Claude (Anthropic) y calcula las cifras con herramientas exactas sobre los datos
+  (recuentos, porcentajes, medias, medianas, búsqueda de filas) en lugar de estimarlas.
+  - Cada usuario introduce su propia **API key de Anthropic** (console.anthropic.com); se guarda solo en su navegador
+    y el uso se factura en esa cuenta.
+  - **Privacidad**: al preguntar se envían a Anthropic la pregunta, el nombre y los valores más frecuentes de cada
+    columna, y los resultados de los cálculos (incluidas filas concretas si la IA las consulta). Sin usar el asistente,
+    los datos no salen del navegador.
+  - Como la app no tiene servidor, la clave se usa directamente desde el navegador. Si se quiere una clave común para
+    todo el equipo sin repartirla, hace falta un pequeño servidor intermedio (p. ej. una Cloudflare Worker) que la guarde.
 - Los datos se guardan **solo en el navegador** (IndexedDB) para que sigan ahí al volver; no se envían a ningún servidor.
 
 ## Uso

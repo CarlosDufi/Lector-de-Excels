@@ -12,6 +12,7 @@ import { MapView } from './components/MapView';
 import { DataTable } from './components/DataTable';
 import { ColumnsView } from './components/ColumnsView';
 import { PivotView } from './components/PivotView';
+import { AskAI } from './components/AskAI';
 import { RowDetail } from './components/RowDetail';
 
 type Tab = 'resumen' | 'mapa' | 'tabla' | 'datos' | 'columnas';
@@ -251,6 +252,18 @@ export default function App() {
           )}
         </main>
       </div>
+
+      <AskAI
+        context={{
+          fileName: dataset.fileName,
+          sheetName: sheet.name,
+          rows: filtered,
+          totalRows: rows.length,
+          columnInfo,
+          filters,
+          search,
+        }}
+      />
 
       {detail && (
         <RowDetail
