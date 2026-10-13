@@ -450,3 +450,13 @@ strong, b { font-weight: 400; }
   .ai-fab { right: 16px; bottom: 16px; }
   .ai-panel { right: 0; left: 0; bottom: 0; top: 0; width: 100vw; border-radius: 0; }
 }
+.map-label { pointer-events: none; fill: var(--ink); paint-order: stroke; stroke: rgba(255, 255, 255, .92); stroke-width: .28em; stroke-linejoin: round; font-variant-numeric: tabular-nums; }
+.map-label-name { font-weight: 700; }
+.country-legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px 16px; margin-top: 12px; font-size: 13px; }
+.country-legend button { display: flex; align-items: center; gap: 7px; border: 0; background: none; padding: 3px 4px; border-radius: 6px; cursor: pointer; text-align: left; min-width: 0; }
+.country-legend button:hover { background: rgba(51, 166, 166, .07); }
+.country-legend button.is-selected { background: var(--turquoise-soft); }
+.country-legend .cl-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.45; }
+.country-legend .cl-stat { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.label-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink); cursor: pointer; }
+.label-toggle input { accent-color: var(--turquoise); }

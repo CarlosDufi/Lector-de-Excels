@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { findCountry } from '../lib/countries';
 import { countBy } from '../lib/filters';
 import { aggregateByCountry, type Metric } from '../lib/geo';
-import { CATEGORICAL, OTHER } from '../lib/palette';
+import { CATEGORICAL, OTHER, distinctColors } from '../lib/palette';
 import type { ColumnInfo, Filters, Row } from '../lib/types';
 
 export function categoryColorMap(rows: Row[], col: string | undefined): Map<string, string> {
@@ -20,6 +20,16 @@ export function useGeo(rows: Row[], allRows: Row[] | undefined, countryCol: stri
   );
   // Los colores se asignan sobre todos los datos para que no cambien al filtrar.
   const categoryColors = useMemo(() => categoryColorMap(allRows ?? rows, colorCol), [allRows, rows, colorCol]);
+  // Un color por país, asignado por volumen sobre todos los datos para que no cambie al filtrar.
+  const countryColors = useMemo(() => {
+    const m = new Map<string, string>();
+    if (!countryCol) return m;
+    const all = aggregateByCountry(allRows ?? rows, countryCol, { kind: 'count' });
+    const ranked = [...all.byCountry.values()].sort((a, b) => b.count - a.count);
+    const colors = distinctColors(ranked.length);
+    ranked.forEach((a, i) => m.set(a.country.a2, colors[i]));
+    return m;
+  }, [allRows, rows, countryCol]);
   const selected = useMemo(() => {
     const f = countryCol ? filters[countryCol] : undefined;
     const s = new Set<string>();
@@ -29,7 +39,7 @@ export function useGeo(rows: Row[], allRows: Row[] | undefined, countryCol: stri
     }
     return s;
   }, [filters, countryCol]);
-  return { agg, categoryColors, selected };
+  return { agg, categoryColors, countryColors, selected };
 }
 
 export function countryColumns(info: ColumnInfo[]) {

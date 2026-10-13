@@ -34,7 +34,7 @@ export function Summary({ rows, allRows, columnInfo, filters, onToggle, onGoMap 
     return (preferred.length ? preferred : chartable).slice(0, 6).map((c) => c.name);
   });
   const [dateCol, setDateCol] = useState(dateCols[0]?.name);
-  const { agg, selected } = useGeo(rows, allRows, countryCol, COUNT_METRIC, undefined, filters);
+  const { agg, countryColors, selected } = useGeo(rows, allRows, countryCol, COUNT_METRIC, undefined, filters);
 
   // Para importes y cantidades lo útil es el valor típico (mediana), no la suma de todas las filas.
   const kpis = useMemo(() => {
@@ -122,7 +122,8 @@ export function Summary({ rows, allRows, columnInfo, filters, onToggle, onGoMap 
               metric={COUNT_METRIC}
               metricLabel="Filas"
               total={rows.length}
-              mode="zona"
+              mode="pais"
+              countryColors={countryColors}
               selected={selected}
               onCountry={(a2) => { const a = agg.byCountry.get(a2); if (a) onToggle(countryCol, [...a.rawValues]); }}
               compact
@@ -133,7 +134,7 @@ export function Summary({ rows, allRows, columnInfo, filters, onToggle, onGoMap 
             <BarList items={regionItems} total={rows.length} />
             <h3 className="card-title spaced">Top países</h3>
             <BarList
-              items={[...agg.byCountry.values()].map((a) => ({ key: a.country.a2, label: a.country.es, value: a.count, color: REGION_COLORS[a.country.region] })).sort((a, b) => b.value - a.value)}
+              items={[...agg.byCountry.values()].map((a) => ({ key: a.country.a2, label: a.country.es, value: a.count, color: countryColors.get(a.country.a2) })).sort((a, b) => b.value - a.value)}
               selected={selected}
               onClick={(a2) => { const a = agg.byCountry.get(a2); if (a) onToggle(countryCol, [...a.rawValues]); }}
               limit={6}

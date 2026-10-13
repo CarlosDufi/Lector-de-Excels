@@ -33,3 +33,20 @@ export const REGION_COLORS: Record<string, string> = {
   'Oceanía': CATEGORICAL[4],
   'Antártida': OTHER,
 };
+
+/**
+ * Un color distinto para cada país (ordenados por volumen). Los primeros usan la paleta
+ * de la marca; a partir de ahí se generan tonos repartidos por el círculo cromático con
+ * saturación contenida. La identidad la dan además las etiquetas del mapa y la leyenda.
+ */
+export function distinctColors(n: number): string[] {
+  // 6 primeros: validados para daltonismo y bien separados entre vecinos (Alemania/Francia…).
+  const base = ['#1fa0a0', '#b8873a', '#7a68c2', '#c0607a', '#3f86c4', '#8f9a3a'];
+  const out = base.slice(0, n);
+  for (let i = out.length; i < n; i++) {
+    const hue = Math.round((20 + i * 137.508) % 360);
+    const light = [40, 56, 48][i % 3];
+    out.push(`hsl(${hue} 45% ${light}%)`);
+  }
+  return out;
+}

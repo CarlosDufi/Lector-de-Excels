@@ -22,7 +22,8 @@ export function MapView({ rows, allRows, columnInfo, filters, onToggle }: Props)
   const catCols = columnInfo.filter((c) => c.type === 'category' || c.type === 'boolean');
 
   const [countryCol, setCountryCol] = useState(countryCols[0]?.name);
-  const [mode, setMode] = useState<ColorMode>('zona');
+  const [mode, setMode] = useState<ColorMode>('pais');
+  const [showLabels, setShowLabels] = useState(true);
   const [metricKey, setMetricKey] = useState('count');
   const [colorCol, setColorCol] = useState(catCols[0]?.name);
 
@@ -34,7 +35,7 @@ export function MapView({ rows, allRows, columnInfo, filters, onToggle }: Props)
   const metricLabel = metric.kind === 'count' ? 'Peticiones' : `${metric.kind === 'sum' ? 'Suma' : 'Media'} de ${metric.col}`;
 
   const activeCountryCol = countryCols.find((c) => c.name === countryCol)?.name ?? countryCols[0]?.name;
-  const { agg, categoryColors, selected } = useGeo(rows, allRows, activeCountryCol, metric, mode === 'columna' ? colorCol : undefined, filters);
+  const { agg, categoryColors, countryColors, selected } = useGeo(rows, allRows, activeCountryCol, metric, mode === 'columna' ? colorCol : undefined, filters);
 
   if (!activeCountryCol || !agg) {
     return (
@@ -51,7 +52,7 @@ export function MapView({ rows, allRows, columnInfo, filters, onToggle }: Props)
       key: a.country.a2,
       label: a.country.es,
       value: metricValue(a, metric),
-      color: mode === 'zona' ? REGION_COLORS[a.country.region] : undefined,
+      color: mode === 'pais' ? countryColors.get(a.country.a2) : mode === 'zona' ? REGION_COLORS[a.country.region] : undefined,
     }))
     .sort((a, b) => b.value - a.value);
 
@@ -83,7 +84,7 @@ export function MapView({ rows, allRows, columnInfo, filters, onToggle }: Props)
         )}
         <div className="field">Colorear por
           <div className="segmented" role="radiogroup">
-            {([['zona', 'Zona del mundo'], ['cantidad', 'Cantidad'], ['columna', 'Columna']] as const).map(([id, label]) => (
+            {([['pais', 'País'], ['zona', 'Zona del mundo'], ['cantidad', 'Cantidad'], ['columna', 'Columna']] as const).map(([id, label]) => (
               <button key={id} role="radio" aria-checked={mode === id} className={mode === id ? 'is-active' : ''} onClick={() => setMode(id)} disabled={id === 'columna' && !catCols.length}>
                 {label}
               </button>
@@ -97,6 +98,10 @@ export function MapView({ rows, allRows, columnInfo, filters, onToggle }: Props)
             </select>
           </label>
         )}
+        <label className="label-toggle push-right">
+          <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
+          Mostrar nombres y porcentajes en el mapa
+        </label>
         <label className="field">Métrica
           <select className="select" value={metricKey} onChange={(e) => setMetricKey(e.target.value)}>
             <option value="count">Número de filas</option>
@@ -115,10 +120,28 @@ export function MapView({ rows, allRows, columnInfo, filters, onToggle }: Props)
             total={total}
             mode={mode}
             categoryColors={categoryColors}
+            countryColors={countryColors}
+            showLabels={showLabels}
             colorColLabel={colorCol}
             selected={selected}
             onCountry={toggleCountry}
           />
+          {mode === 'pais' && (
+            <div className="country-legend" aria-label="Leyenda de países">
+              {tableRows.map((a) => (
+                <button
+                  key={a.country.a2}
+                  className={selected.has(a.country.a2) ? 'is-selected' : ''}
+                  onClick={() => toggleCountry(a.country.a2)}
+                  title={`${a.country.es}: ${formatNumber(a.count)} peticiones (${percent(a.count, rows.length)}) · clic para filtrar`}
+                >
+                  <span className="swatch" style={{ background: countryColors.get(a.country.a2) }} />
+                  <span className="cl-name">{a.country.es}</span>
+                  <span className="cl-stat">{formatNumber(a.count)} · {percent(a.count, rows.length)}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="legend">
             {mode === 'zona' && REGIONS.filter((r) => r !== 'Antártida').map((r) => (
               <span key={r} className="legend-item">
@@ -188,7 +211,7 @@ export function MapView({ rows, allRows, columnInfo, filters, onToggle }: Props)
             <tbody>
               {tableRows.map((a) => (
                 <tr key={a.country.a2} className={selected.has(a.country.a2) ? 'is-selected' : ''} onClick={() => toggleCountry(a.country.a2)} title="Clic para filtrar">
-                  <td>{a.country.es}</td>
+                  <td><span className="legend-item"><span className="swatch" style={{ background: countryColors.get(a.country.a2) }} />{a.country.es}</span></td>
                   <td><span className="legend-item"><span className="swatch" style={{ background: REGION_COLORS[a.country.region] }} />{a.country.region}</span></td>
                   <td className="num">{formatNumber(a.count)}</td>
                   <td className="pct-cell">

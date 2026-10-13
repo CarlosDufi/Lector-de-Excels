@@ -9,7 +9,7 @@ import { formatNumber, percent } from '../lib/format';
 import { dominant, metricValue, type GeoAgg, type Metric } from '../lib/geo';
 import { NO_DATA, OTHER, REGION_COLORS, sequentialColor } from '../lib/palette';
 
-export type ColorMode = 'zona' | 'cantidad' | 'columna';
+export type ColorMode = 'pais' | 'zona' | 'cantidad' | 'columna';
 
 interface Props {
   agg: GeoAgg;
@@ -19,6 +19,10 @@ interface Props {
   total: number;
   mode: ColorMode;
   categoryColors?: Map<string, string>;
+  /** Color de cada país (alpha-2) para el modo «pais». */
+  countryColors?: Map<string, string>;
+  /** Muestra nombre, peticiones y % sobre los países con datos. */
+  showLabels?: boolean;
   colorColLabel?: string;
   selected: Set<string>; // alpha-2 seleccionados por filtro
   onCountry: (a2: string) => void;
@@ -40,7 +44,7 @@ function loadGeo() {
   return geoCache;
 }
 
-export function WorldMap({ agg, metric, metricLabel, total, mode, categoryColors, colorColLabel, selected, onCountry, compact }: Props) {
+export function WorldMap({ agg, metric, metricLabel, total, mode, categoryColors, countryColors, showLabels = true, colorColLabel, selected, onCountry, compact }: Props) {
   const [features, setFeatures] = useState<Feature<Geometry, { name: string }>[] | null>(null);
   const [view, setView] = useState({ k: 1, x: 0, y: 0 });
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -60,9 +64,49 @@ export function WorldMap({ agg, metric, metricLabel, total, mode, categoryColors
   }, []);
 
   const shapes = useMemo(
-    () => features?.map((f) => ({ id: String(f.id ?? ''), name: f.properties.name, d: path(f) ?? '', country: countryByNumericId(f.id as string) })) ?? [],
+    () => features?.map((f) => ({
+      id: String(f.id ?? ''),
+      name: f.properties.name,
+      d: path(f) ?? '',
+      country: countryByNumericId(f.id as string),
+      anchor: labelAnchor(f, path),
+    })) ?? [],
     [features, path],
   );
+
+  // Ancho real del mapa en pantalla, para que las etiquetas tengan siempre el mismo tamaño.
+  const [pxPerUnit, setPxPerUnit] = useState(0.75);
+  useEffect(() => {
+    const el = svg.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setPxPerUnit(el.getBoundingClientRect().width / W || 0.75));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Etiquetas: de más a menos peticiones, se omiten las que se solaparían (aparecen al hacer zoom).
+  const labels = useMemo(() => {
+    if (!showLabels) return [];
+    const fs = (compact ? 10 : 11.5) / (pxPerUnit * view.k);
+    const placed: { x0: number; y0: number; x1: number; y1: number }[] = [];
+    const out: { a2: string; x: number; y: number; name: string; stat: string; fs: number }[] = [];
+    const byA2 = new Map(shapes.filter((s) => s.country).map((s) => [s.country!.a2, s]));
+    const ranked = [...agg.byCountry.values()].sort((a, b) => b.count - a.count);
+    for (const a of ranked) {
+      const shape = byA2.get(a.country.a2);
+      if (!shape?.anchor) continue;
+      const [x, y] = shape.anchor;
+      const name = a.country.es;
+      const stat = `${formatNumber(a.count)} · ${percent(a.count, total)}`;
+      const w = Math.max(name.length, stat.length) * fs * 0.58 + fs * 0.6;
+      const h = fs * 2.5;
+      const box = { x0: x - w / 2, y0: y - h / 2, x1: x + w / 2, y1: y + h / 2 };
+      if (placed.some((p) => box.x0 < p.x1 && box.x1 > p.x0 && box.y0 < p.y1 && box.y1 > p.y0)) continue;
+      placed.push(box);
+      out.push({ a2: a.country.a2, x, y, name, stat, fs });
+    }
+    return out;
+  }, [showLabels, shapes, agg, total, pxPerUnit, view.k, compact]);
 
   const max = useMemo(() => {
     let m = 0;
@@ -72,6 +116,9 @@ export function WorldMap({ agg, metric, metricLabel, total, mode, categoryColors
 
   const fillFor = (a2: string | undefined, region: string | undefined): { fill: string; opacity: number } => {
     const a = a2 ? agg.byCountry.get(a2) : undefined;
+    if (mode === 'pais') {
+      return a ? { fill: (a2 && countryColors?.get(a2)) || OTHER, opacity: 1 } : { fill: NO_DATA, opacity: 1 };
+    }
     if (mode === 'zona') {
       const base = REGION_COLORS[region ?? ''] ?? OTHER;
       return a ? { fill: base, opacity: 1 } : { fill: base, opacity: 0.18 };
@@ -173,6 +220,12 @@ export function WorldMap({ agg, metric, metricLabel, total, mode, categoryColors
               />
             );
           })}
+          {labels.map((l) => (
+            <text key={l.a2} x={l.x} y={l.y} className="map-label" style={{ fontSize: l.fs }} textAnchor="middle">
+              <tspan x={l.x} dy={-l.fs * 0.15} className="map-label-name">{l.name}</tspan>
+              <tspan x={l.x} dy={l.fs * 1.15}>{l.stat}</tspan>
+            </text>
+          ))}
         </g>
       </svg>
 
@@ -222,4 +275,25 @@ function clamp(v: { k: number; x: number; y: number }) {
   const minX = W - W * v.k;
   const minY = H - H * v.k;
   return { k: v.k, x: Math.min(0, Math.max(minX, v.x)), y: Math.min(0, Math.max(minY, v.y)) };
+}
+
+/** Punto de la etiqueta: centro del polígono más grande (evita que territorios lejanos lo desplacen). */
+function labelAnchor(f: Feature<Geometry, { name: string }>, path: ReturnType<typeof geoPath>): [number, number] | null {
+  const g = f.geometry;
+  if (!g) return null;
+  if (g.type === 'MultiPolygon') {
+    let best: [number, number] | null = null;
+    let bestArea = -1;
+    for (const coords of g.coordinates) {
+      const poly = { type: 'Polygon' as const, coordinates: coords };
+      const area = path.area(poly);
+      if (area > bestArea) {
+        bestArea = area;
+        best = path.centroid(poly) as [number, number];
+      }
+    }
+    return best && Number.isFinite(best[0]) ? best : null;
+  }
+  const c = path.centroid(f) as [number, number];
+  return Number.isFinite(c[0]) ? c : null;
 }
